@@ -3,32 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Crypto Scanner V2</title>
+<title>AI Crypto Scanner V3</title>
 <style>
 *{box-sizing:border-box}
-body{background:#080d18;color:#e9f2ff;font-family:Arial;margin:0;padding:15px}
-h1{color:#00e5a0}
+body{background:#080d18;color:#e9f2ff;font-family:Arial,sans-serif;margin:0;padding:15px}
+h1{color:#00e5a0;margin-bottom:5px}
+h2,h3{margin-top:5px}
 .box{background:#151f30;padding:15px;border-radius:12px;margin:12px 0}
 button,select,input{width:100%;padding:13px;margin:6px 0;border:0;border-radius:8px}
-button{background:#00d69b;color:#001b14;font-weight:bold}
+button{background:#00d69b;color:#001b14;font-weight:bold;cursor:pointer}
+button.secondary{background:#30445f;color:#fff}
 select,input{background:#25344a;color:white}
-.card{background:#202d40;padding:13px;margin:10px 0;border-radius:9px}
-.green{color:#00e5a0}
-.red{color:#ff6868}
-.yellow{color:#ffd166}
-small{color:#aab8ca}
+.card{background:#202d40;padding:13px;margin:10px 0;border-radius:9px;overflow-wrap:anywhere}
+.green{color:#00e5a0}.red{color:#ff6868}.yellow{color:#ffd166}
+small,.muted{color:#aab8ca}
 a{color:#55c8ff}
+label{display:block;margin-top:8px;color:#cbd8e8;font-size:14px}
+.notice{background:#332d1d;border-left:4px solid #ffd166;padding:10px;border-radius:7px;color:#ffe5a0;font-size:13px}
+.tabs{display:flex;gap:7px;flex-wrap:wrap}
+.tabs button{width:auto;flex:1;min-width:105px}
+.hidden{display:none}
+.stat{display:inline-block;background:#263950;padding:7px 10px;border-radius:7px;margin:3px;font-size:13px}
 </style>
 </head>
 <body>
-
 <h1>🚀 AI CRYPTO HUNTER</h1>
-<p>Multi-chain Meme Coin Scanner V2</p>
+<p>Multi-chain Meme Coin Scanner + Whale Accumulation Monitor V3</p>
 
+<div class="tabs">
+<button onclick="showTab('scanner')">🔍 TOKEN SCANNER</button>
+<button class="secondary" onclick="showTab('whale')">🐳 WHALE TRACKER</button>
+</div>
+
+<section id="scanner">
 <div class="box">
 <h3>🔍 AUTO DISCOVERY</h3>
 <select id="network">
-<option value="all">Semua jaringan</option>
+<option value="all">Semua jaringan yang didukung DexScreener</option>
 <option value="solana">Solana</option>
 <option value="ethereum">Ethereum</option>
 <option value="bsc">BNB Chain</option>
@@ -36,21 +47,15 @@ a{color:#55c8ff}
 <option value="arbitrum">Arbitrum</option>
 <option value="polygon">Polygon</option>
 <option value="avalanche">Avalanche</option>
-<option value="sui">Sui</option>
-<option value="ton">TON</option>
-<option value="hyperliquid">Hyperliquid</option>
 </select>
-
 <button onclick="scan()">🚀 MULAI SCAN OTOMATIS</button>
-<button onclick="scanBoost()">🔥 SCAN TOKEN BOOST</button>
+<button class="secondary" onclick="scanBoost()">🔥 SCAN TOKEN BOOST</button>
 </div>
-
 <div class="box">
 <h3>📊 HASIL SCANNER</h3>
 <div id="status">Menunggu pemindaian...</div>
 <div id="results"></div>
 </div>
-
 <div class="box">
 <h3>🛡️ FILTER RISIKO</h3>
 <p>Likuiditas minimum: $10.000</p>
@@ -58,172 +63,208 @@ a{color:#55c8ff}
 <p>Transaksi beli dan jual dianalisis.</p>
 <small>Filter ini bukan jaminan token aman.</small>
 </div>
+</section>
 
+<section id="whale" class="hidden">
 <div class="box">
-<h3>🐳 WHALE TRACKER</h3>
-<p class="yellow">Belum terhubung ke data transaksi wallet on-chain.</p>
+<h3>🐳 WHALE ACCUMULATION SCREENER</h3>
+<p class="muted">Memantau perubahan saldo holder token dari satu pemindaian ke pemindaian berikutnya.</p>
+<div class="notice">Akurasi: modul ini membandingkan snapshot saldo holder, bukan membaca niat wallet. Kenaikan saldo belum tentu pembelian; bisa berasal dari transfer. Data EVM memakai Moralis API dan memerlukan API key.</div>
+<label>Moralis API Key (disimpan hanya di browser ini)</label>
+<input id="moralisKey" type="password" placeholder="Masukkan API key Moralis">
+<label>Jaringan token</label>
+<select id="whaleChain">
+<option value="eth">Ethereum</option>
+<option value="bsc">BNB Chain</option>
+<option value="base">Base</option>
+<option value="arbitrum">Arbitrum</option>
+<option value="polygon">Polygon</option>
+<option value="avalanche">Avalanche</option>
+</select>
+<label>Alamat kontrak token (ERC-20)</label>
+<input id="tokenAddress" placeholder="0x...">
+<label>Jumlah holder yang diambil (maksimal 100)</label>
+<select id="holderLimit">
+<option value="25">25 holder</option>
+<option value="50" selected>50 holder</option>
+<option value="100">100 holder</option>
+</select>
+<button onclick="saveWhaleSettings()">💾 SIMPAN PENGATURAN</button>
+<button onclick="scanWhales()">🐳 SCAN HOLDER & AKUMULASI</button>
+<button class="secondary" onclick="clearSnapshot()">HAPUS SNAPSHOT SEBELUMNYA</button>
+<div id="whaleStatus" class="muted">Belum ada pemindaian whale.</div>
+<div id="whaleSummary"></div>
+<div id="whaleResults"></div>
 </div>
+<div class="box">
+<h3>🌐 STATUS DUKUNGAN JARINGAN</h3>
+<div class="card"><b class="green">EVM: Ethereum, BNB, Base, Arbitrum, Polygon, Avalanche</b><br><small>Snapshot holder melalui Moralis API. Perlu API key.</small></div>
+<div class="card"><b class="yellow">Solana</b><br><small>Belum diaktifkan pada modul snapshot ini. Perlu integrasi endpoint holder Solana yang sesuai dan API key Helius/Moralis.</small></div>
+<div class="card"><b class="yellow">Sui, TON, Hyperliquid</b><br><small>Belum diaktifkan. Masing-masing membutuhkan sumber data dan format holder khusus; tidak akan ditampilkan sebagai data aktif palsu.</small></div>
+</div>
+</section>
 
 <div class="box">
 <h3>⚠️ PENTING</h3>
-<p>Skor adalah penilaian heuristik, bukan prediksi keuntungan.</p>
-<p>Periksa kontrak, distribusi holder, likuiditas terkunci dan risiko developer sebelum membeli.</p>
+<p>Skor scanner adalah penilaian heuristik, bukan prediksi keuntungan.</p>
+<p>Snapshot pertama menjadi data dasar. Perubahan akumulasi baru bisa dihitung setelah pemindaian kedua atau berikutnya.</p>
+<p>Jangan pernah memasukkan seed phrase, private key, atau password wallet ke aplikasi ini.</p>
 </div>
 
 <script>
 const API="https://api.dexscreener.com";
-
-const allowed=[
-"solana","ethereum","bsc","base","arbitrum",
-"polygon","avalanche","sui","ton","hyperliquid"
-];
-
+const allowed=["solana","ethereum","bsc","base","arbitrum","polygon","avalanche"];
 let busy=false;
 
-async function getData(url){
-const r=await fetch(url);
-if(!r.ok)throw Error("API error "+r.status);
-return r.json();
+function showTab(which){
+ document.getElementById("scanner").classList.toggle("hidden",which!=="scanner");
+ document.getElementById("whale").classList.toggle("hidden",which!=="whale");
 }
-
+async function getData(url,headers={}){
+ const r=await fetch(url,{headers});
+ if(!r.ok)throw Error("Permintaan gagal: HTTP "+r.status);
+ return r.json();
+}
 function score(p){
-let s=0;
-const liq=Number(p.liquidity?.usd)||0;
-const vol=Number(p.volume?.h24)||0;
-const buys=Number(p.txns?.h24?.buys)||0;
-const sells=Number(p.txns?.h24?.sells)||0;
-const change=Number(p.priceChange?.h24)||0;
-
-if(liq>=100000)s+=25;
-else if(liq>=50000)s+=20;
-else if(liq>=10000)s+=10;
-
-if(vol>=500000)s+=25;
-else if(vol>=100000)s+=20;
-else if(vol>=5000)s+=10;
-
-if(buys>sells && buys>0)s+=15;
-if(buys+sells>=100)s+=15;
-
-if(change>0 && change<50)s+=10;
-if(Number(p.boosts?.active)>0)s+=5;
-if(liq>0 && vol/liq>0.2 && vol/liq<10)s+=5;
-
-return s;
+ let s=0;
+ const liq=Number(p.liquidity?.usd)||0,vol=Number(p.volume?.h24)||0;
+ const buys=Number(p.txns?.h24?.buys)||0,sells=Number(p.txns?.h24?.sells)||0;
+ const change=Number(p.priceChange?.h24)||0;
+ if(liq>=100000)s+=25;else if(liq>=50000)s+=20;else if(liq>=10000)s+=10;
+ if(vol>=500000)s+=25;else if(vol>=100000)s+=20;else if(vol>=5000)s+=10;
+ if(buys>sells&&buys>0)s+=15;
+ if(buys+sells>=100)s+=15;
+ if(change>0&&change<50)s+=10;
+ if(Number(p.boosts?.active)>0)s+=5;
+ if(liq>0&&vol/liq>0.2&&vol/liq<10)s+=5;
+ return s;
 }
-
 function render(pairs){
-const out=document.getElementById("results");
-out.innerHTML="";
-
-const best={};
-
-pairs.forEach(p=>{
-if(!p.baseToken)return;
-const key=p.chainId+":"+p.baseToken.address;
-if(!best[key]||
-(Number(p.liquidity?.usd)||0)>
-(Number(best[key].liquidity?.usd)||0)){
-best[key]=p;
+ const out=document.getElementById("results");out.innerHTML="";
+ const best={};
+ pairs.forEach(p=>{
+  if(!p.baseToken)return;
+  const key=p.chainId+":"+p.baseToken.address;
+  if(!best[key]||(Number(p.liquidity?.usd)||0)>(Number(best[key].liquidity?.usd)||0))best[key]=p;
+ });
+ const data=Object.values(best).filter(p=>allowed.includes(p.chainId))
+ .filter(p=>(Number(p.liquidity?.usd)||0)>=10000&&(Number(p.volume?.h24)||0)>=5000)
+ .map(p=>({...p,score:score(p)})).sort((a,b)=>b.score-a.score).slice(0,10);
+ if(!data.length){out.textContent="Tidak ditemukan token yang memenuhi filter. Coba scan lagi.";return;}
+ data.forEach((p,i)=>{
+  const liq=Number(p.liquidity.usd),vol=Number(p.volume.h24);
+  const buys=Number(p.txns?.h24?.buys)||0,sells=Number(p.txns?.h24?.sells)||0;
+  const signal=p.score>=75?"MENARIK":p.score>=50?"PANTAU":"RISIKO LEBIH TINGGI";
+  out.innerHTML+=`<div class="card"><h3>${i+1}. ${esc(p.baseToken.name)} (${esc(p.baseToken.symbol)})</h3>
+  <p>Jaringan: ${esc(p.chainId)}</p><p>Harga: $${esc(p.priceUsd||"-")}</p>
+  <p>Likuiditas: $${liq.toLocaleString()}</p><p>Volume 24 jam: $${vol.toLocaleString()}</p>
+  <p>Beli: ${buys} | Jual: ${sells}</p><p>Perubahan 24 jam: ${p.priceChange?.h24??"-"}%</p>
+  <p>Skor: <b class="green">${p.score}/100</b></p><p class="yellow">Status: ${signal}</p>
+  <p>Boost aktif: ${p.boosts?.active||0}</p>
+  <a href="${escAttr(p.url)}" target="_blank" rel="noopener">BUKA GRAFIK DEXSCREENER</a></div>`;
+ });
 }
-});
-
-const data=Object.values(best)
-.filter(p=>allowed.includes(p.chainId))
-.filter(p=>
-(Number(p.liquidity?.usd)||0)>=10000 &&
-(Number(p.volume?.h24)||0)>=5000
-)
-.map(p=>({...p,score:score(p)}))
-.sort((a,b)=>b.score-a.score)
-.slice(0,10);
-
-if(!data.length){
-out.innerHTML="Tidak ditemukan token yang memenuhi filter. Coba scan lagi.";
-return;
-}
-
-data.forEach((p,i)=>{
-const liq=Number(p.liquidity.usd);
-const vol=Number(p.volume.h24);
-const buys=Number(p.txns?.h24?.buys)||0;
-const sells=Number(p.txns?.h24?.sells)||0;
-
-let signal=p.score>=75?"MENARIK":p.score>=50?"PANTAU":"RISIKO LEBIH TINGGI";
-
-out.innerHTML+=`
-<div class="card">
-<h3>${i+1}. ${p.baseToken.name} (${p.baseToken.symbol})</h3>
-<p>Jaringan: ${p.chainId}</p>
-<p>Harga: $${p.priceUsd||"-"}</p>
-<p>Likuiditas: $${liq.toLocaleString()}</p>
-<p>Volume 24 jam: $${vol.toLocaleString()}</p>
-<p>Beli: ${buys} | Jual: ${sells}</p>
-<p>Perubahan 24 jam: ${p.priceChange?.h24??"-"}%</p>
-<p>Skor: <b class="green">${p.score}/100</b></p>
-<p class="yellow">Status: ${signal}</p>
-<p>Boost aktif: ${p.boosts?.active||0}</p>
-<a href="${p.url}" target="_blank" rel="noopener">BUKA GRAFIK DEXSCREENER</a>
-</div>`;
-});
-}
-
 async function discover(boost=false){
-if(busy)return;
-busy=true;
-const status=document.getElementById("status");
-const out=document.getElementById("results");
-const network=document.getElementById("network").value;
-
-status.innerHTML="⏳ Mengambil data token...";
-out.innerHTML="";
-
-try{
-const endpoint=boost?
-"/token-boosts/latest/v1":
-"/token-profiles/latest/v1";
-
-const list=await getData(API+endpoint);
-
-if(!Array.isArray(list)||!list.length)
-throw Error("Data token kosong");
-
-const selected=list.filter(t=>
-network==="all"||t.chainId===network
-).filter(t=>allowed.includes(t.chainId));
-
-if(!selected.length)
-throw Error("Belum ada token pada jaringan ini");
-
-status.innerHTML="Menganalisis "+selected.length+" token...";
-
-const pairs=await Promise.all(
-selected.slice(0,20).map(async t=>{
-try{
-return await getData(
-API+"/token-pairs/v1/"+
-encodeURIComponent(t.chainId)+"/"+
-encodeURIComponent(t.tokenAddress)
-);
-}catch(e){return []}
-})
-);
-
-const flat=pairs.flat();
-
-render(flat);
-status.innerHTML="✅ Pemindaian selesai. Data berhasil diperiksa: "+flat.length+" pair.";
-
-}catch(e){
-status.innerHTML="❌ "+e.message;
-}finally{
-busy=false;
+ if(busy)return;busy=true;
+ const status=document.getElementById("status"),out=document.getElementById("results");
+ const network=document.getElementById("network").value;status.textContent="Mengambil data token...";out.innerHTML="";
+ try{
+  const endpoint=boost?"/token-boosts/latest/v1":"/token-profiles/latest/v1";
+  const list=await getData(API+endpoint);
+  if(!Array.isArray(list)||!list.length)throw Error("Data token kosong");
+  const selected=list.filter(t=>(network==="all"||t.chainId===network)&&allowed.includes(t.chainId));
+  if(!selected.length)throw Error("Belum ada token pada jaringan ini");
+  status.textContent="Menganalisis "+selected.length+" token...";
+  const pairs=await Promise.all(selected.slice(0,30).map(async t=>{
+   try{return await getData(API+"/token-pairs/v1/"+encodeURIComponent(t.chainId)+"/"+encodeURIComponent(t.tokenAddress));}
+   catch(e){return [];}
+  }));
+  const flat=pairs.flat();render(flat);
+  status.textContent="✅ Pemindaian selesai. Pair diperiksa: "+flat.length+".";
+ }catch(e){status.textContent="❌ "+e.message;}
+ finally{busy=false;}
 }
-}
+function scan(){discover(false)}function scanBoost(){discover(true)}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function escAttr(v){return esc(v);}
 
-function scan(){discover(false)}
-function scanBoost(){discover(true)}
+function saveWhaleSettings(){
+ localStorage.setItem("whale_moralis_key",document.getElementById("moralisKey").value.trim());
+ localStorage.setItem("whale_chain",document.getElementById("whaleChain").value);
+ localStorage.setItem("whale_token",document.getElementById("tokenAddress").value.trim());
+ localStorage.setItem("whale_limit",document.getElementById("holderLimit").value);
+ document.getElementById("whaleStatus").textContent="Pengaturan disimpan di browser perangkat ini.";
+}
+function loadWhaleSettings(){
+ document.getElementById("moralisKey").value=localStorage.getItem("whale_moralis_key")||"";
+ document.getElementById("whaleChain").value=localStorage.getItem("whale_chain")||"eth";
+ document.getElementById("tokenAddress").value=localStorage.getItem("whale_token")||"";
+ document.getElementById("holderLimit").value=localStorage.getItem("whale_limit")||"50";
+}
+function snapshotKey(chain,token){return "whale_snapshot_"+chain+"_"+token.toLowerCase();}
+async function scanWhales(){
+ const status=document.getElementById("whaleStatus"),results=document.getElementById("whaleResults");
+ const summary=document.getElementById("whaleSummary");
+ results.innerHTML="";summary.innerHTML="";
+ const key=document.getElementById("moralisKey").value.trim();
+ const chain=document.getElementById("whaleChain").value;
+ const token=document.getElementById("tokenAddress").value.trim();
+ const limit=Number(document.getElementById("holderLimit").value)||50;
+ if(!key){status.innerHTML='<span class="red">Masukkan Moralis API Key terlebih dahulu.</span>';return;}
+ if(!/^0x[a-fA-F0-9]{40}$/.test(token)){status.innerHTML='<span class="red">Alamat kontrak harus berupa alamat token EVM 0x... yang valid.</span>';return;}
+ saveWhaleSettings();status.textContent="Mengambil daftar holder dari Moralis...";
+ try{
+  const url="https://deep-index.moralis.io/api/v2.2/erc20/"+token+"/owners?chain="+chain+"&limit="+limit;
+  const data=await getData(url,{"accept":"application/json","X-API-Key":key});
+  const owners=data.result||data.owners||[];
+  if(!owners.length)throw Error("Daftar holder kosong. Periksa kontrak, jaringan, dan hak akses API.");
+  const current={};
+  owners.forEach(o=>{
+   const addr=(o.owner_address||o.ownerAddress||o.address||"").toLowerCase();
+   const raw=String(o.balance||o.amount||"0");
+   const decimals=Number(o.decimals??data.token_decimals??18);
+   let amount=Number(o.balance_formatted);
+   if(!Number.isFinite(amount))amount=Number(raw)/Math.pow(10,decimals);
+   if(addr)current[addr]={address:addr,amount:Number.isFinite(amount)?amount:0};
+  });
+  const sk=snapshotKey(chain,token),previous=JSON.parse(localStorage.getItem(sk)||"null");
+  localStorage.setItem(sk,JSON.stringify({time:Date.now(),holders:current}));
+  let price=0;
+  try{
+   const pairData=await getData(API+"/token-pairs/v1/"+(chain==="eth"?"ethereum":chain)+"/"+token);
+   const sorted=(Array.isArray(pairData)?pairData:[]).sort((a,b)=>(Number(b.liquidity?.usd)||0)-(Number(a.liquidity?.usd)||0));
+   price=Number(sorted[0]?.priceUsd)||0;
+  }catch(e){}
+  const rows=Object.values(current).map(h=>{
+   const old=previous?.holders?.[h.address];
+   const delta=old?h.amount-old.amount:null;
+   return {...h,delta,usd:price?h.amount*price:null,deltaUsd:price&&delta!==null?delta*price:null};
+  }).sort((a,b)=>(b.delta??-Infinity)-(a.delta??-Infinity));
+  const gained=rows.filter(x=>x.delta>0).length,lost=rows.filter(x=>x.delta<0).length;
+  const age=previous?Math.round((Date.now()-previous.time)/60000):null;
+  summary.innerHTML=`<span class="stat">Holder terbaca: ${rows.length}</span><span class="stat">Saldo naik: ${gained}</span><span class="stat">Saldo turun: ${lost}</span>`+
+  (previous?`<span class="stat">Jarak snapshot sebelumnya: ${age} menit</span>`:'<p class="yellow">Snapshot pertama tersimpan. Scan lagi nanti untuk membandingkan perubahan saldo.</p>');
+  rows.slice(0,20).forEach((h,i)=>{
+   const deltaText=h.delta===null?"Menunggu snapshot kedua":(h.delta>0?"+":"")+h.delta.toLocaleString(undefined,{maximumFractionDigits:6});
+   const cls=h.delta>0?"green":h.delta<0?"red":"yellow";
+   results.innerHTML+=`<div class="card"><b>${i+1}. ${h.address.slice(0,8)}...${h.address.slice(-6)}</b>
+   <p>Saldo sekarang: ${h.amount.toLocaleString(undefined,{maximumFractionDigits:6})}</p>
+   <p>Perubahan saldo: <b class="${cls}">${deltaText}</b></p>
+   ${h.usd!==null?`<p>Nilai saldo perkiraan: $${h.usd.toLocaleString(undefined,{maximumFractionDigits:2})}</p>`:""}
+   ${h.deltaUsd!==null?`<p>Perubahan nilai perkiraan: $${h.deltaUsd.toLocaleString(undefined,{maximumFractionDigits:2})}</p>`:""}
+   </div>`;
+  });
+  status.innerHTML="✅ Snapshot holder berhasil diperbarui. "+(previous?"Perubahan dibandingkan dengan snapshot sebelumnya.":"Lakukan scan berikutnya untuk mulai melihat perubahan.");
+ }catch(e){status.innerHTML='<span class="red">❌ '+esc(e.message)+'</span>';}
+}
+function clearSnapshot(){
+ const chain=document.getElementById("whaleChain").value,token=document.getElementById("tokenAddress").value.trim();
+ if(!/^0x[a-fA-F0-9]{40}$/.test(token)){document.getElementById("whaleStatus").textContent="Masukkan kontrak token yang valid terlebih dahulu.";return;}
+ localStorage.removeItem(snapshotKey(chain,token));
+ document.getElementById("whaleStatus").textContent="Snapshot lokal token ini sudah dihapus.";
+ document.getElementById("whaleSummary").innerHTML="";document.getElementById("whaleResults").innerHTML="";
+}
+loadWhaleSettings();
 </script>
-
 </body>
 </html>
