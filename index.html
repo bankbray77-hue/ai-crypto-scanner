@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Crypto Scanner</title>
+<style>
+body{background:#080d18;color:white;font-family:Arial;padding:15px}
+h1{color:#00e5a0}
+.box{background:#151f30;padding:15px;border-radius:12px;margin:12px 0}
+input,select,button{width:100%;padding:13px;margin:7px 0;border-radius:8px;border:0;box-sizing:border-box}
+button{background:#00c991;color:#001b14;font-weight:bold}
+.result{border-bottom:1px solid #394458;padding:12px 0}
+.green{color:#00e5a0}.red{color:#ff6262}
+small{color:#aab5c5}
+</style>
+</head>
+<body>
+
+<h1>🚀 AI CRYPTO SCANNER</h1>
+<p>Deteksi peluang token dan meme coin</p>
+
+<div class="box">
+<h3>🔎 TOKEN SCANNER</h3>
+
+<select id="chain">
+<option value="solana">Solana</option>
+<option value="ethereum">Ethereum</option>
+<option value="bsc">BNB Chain</option>
+<option value="base">Base</option>
+<option value="arbitrum">Arbitrum</option>
+<option value="sui">Sui</option>
+<option value="avalanche">Avalanche</option>
+<option value="ton">TON</option>
+<option value="polygon">Polygon</option>
+</select>
+
+<input id="address" placeholder="Masukkan alamat kontrak token">
+
+<button onclick="scan()">MULAI SCAN</button>
+</div>
+
+<div class="box">
+<h3>📊 HASIL ANALISIS</h3>
+<div id="result">Masukkan alamat kontrak untuk memulai.</div>
+</div>
+
+<div class="box">
+<h3>⚠️ CATATAN RISIKO</h3>
+<p>Analisis berdasarkan data pasar publik.
+Sinyal bukan jaminan keuntungan.</p>
+</div>
+
+<script>
+async function scan(){
+const chain=document.getElementById("chain").value;
+const address=document.getElementById("address").value.trim();
+const out=document.getElementById("result");
+
+if(!address){
+out.innerHTML="Masukkan alamat kontrak token.";
+return;
+}
+
+out.innerHTML="⏳ Mengambil data pasar...";
+
+try{
+const url="https://api.dexscreener.com/token-pairs/v1/"+chain+"/"+encodeURIComponent(address);
+const response=await fetch(url);
+
+if(!response.ok) throw new Error("API tidak tersedia");
+
+const pairs=await response.json();
+
+if(!Array.isArray(pairs)||pairs.length===0){
+out.innerHTML="Token atau pair tidak ditemukan.";
+return;
+}
+
+pairs.sort((a,b)=>
+(Number(b.liquidity?.usd)||0)-
+(Number(a.liquidity?.usd)||0)
+);
+
+let p=pairs[0];
+
+const liquidity=Number(p.liquidity?.usd)||0;
+const volume=Number(p.volume?.h24)||0;
+const change=Number(p.priceChange?.h24)||0;
+const age=p.pairCreatedAt?
+(Date.now()-p.pairCreatedAt)/3600000:null;
+
+let score=0;
+if(liquidity>=50000)score+=25;
+else if(liquidity>=10000)score+=15;
+
+if(volume>=100000)score+=25;
+else if(volume>=20000)score+=15;
+
+if(volume>liquidity && liquidity>0)score+=15;
+if(change>0 && change<30)score+=15;
+if(age!==null && age>=24)score+=20;
+
+let signal="WAIT";
+if(score>=75)signal="POTENSI MENARIK";
+else if(score<35)signal="RISIKO TINGGI";
+
+out.innerHTML=`
+<div class="result">
+<b>${p.baseToken?.name||"Unknown"} (${p.baseToken?.symbol||"-"})</b>
+</div>
+<div class="result">Harga: $${p.priceUsd||"-"}</div>
+<div class="result">Likuiditas: $${liquidity.toLocaleString()}</div>
+<div class="result">Volume 24 jam: $${volume.toLocaleString()}</div>
+<div class="result">Perubahan 24 jam:
+<span class="${change>=0?'green':'red'}">${change}%</span></div>
+<div class="result">Umur pair: ${age===null?"Tidak tersedia":age.toFixed(1)+" jam"}</div>
+<div class="result">Skor screening: ${score}/100</div>
+<h3 class="${score>=75?'green':'red'}">${signal}</h3>
+<small>Skor ini adalah penyaringan heuristik, bukan probabilitas keuntungan atau sinyal beli.</small>
+`;
+}catch(e){
+out.innerHTML="Gagal mengambil data. Periksa koneksi dan alamat kontrak.";
+}
+}
+</script>
+
+</body>
+</html>
