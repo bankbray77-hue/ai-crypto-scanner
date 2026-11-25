@@ -2,127 +2,227 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AI Crypto Scanner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Crypto Scanner V2</title>
 <style>
-body{background:#080d18;color:white;font-family:Arial;padding:15px}
+*{box-sizing:border-box}
+body{background:#080d18;color:#e9f2ff;font-family:Arial;margin:0;padding:15px}
 h1{color:#00e5a0}
 .box{background:#151f30;padding:15px;border-radius:12px;margin:12px 0}
-input,select,button{width:100%;padding:13px;margin:7px 0;border-radius:8px;border:0;box-sizing:border-box}
-button{background:#00c991;color:#001b14;font-weight:bold}
-.result{border-bottom:1px solid #394458;padding:12px 0}
-.green{color:#00e5a0}.red{color:#ff6262}
-small{color:#aab5c5}
+button,select,input{width:100%;padding:13px;margin:6px 0;border:0;border-radius:8px}
+button{background:#00d69b;color:#001b14;font-weight:bold}
+select,input{background:#25344a;color:white}
+.card{background:#202d40;padding:13px;margin:10px 0;border-radius:9px}
+.green{color:#00e5a0}
+.red{color:#ff6868}
+.yellow{color:#ffd166}
+small{color:#aab8ca}
+a{color:#55c8ff}
 </style>
 </head>
 <body>
 
-<h1>🚀 AI CRYPTO SCANNER</h1>
-<p>Deteksi peluang token dan meme coin</p>
+<h1>🚀 AI CRYPTO HUNTER</h1>
+<p>Multi-chain Meme Coin Scanner V2</p>
 
 <div class="box">
-<h3>🔎 TOKEN SCANNER</h3>
-
-<select id="chain">
+<h3>🔍 AUTO DISCOVERY</h3>
+<select id="network">
+<option value="all">Semua jaringan</option>
 <option value="solana">Solana</option>
 <option value="ethereum">Ethereum</option>
 <option value="bsc">BNB Chain</option>
 <option value="base">Base</option>
 <option value="arbitrum">Arbitrum</option>
-<option value="sui">Sui</option>
-<option value="avalanche">Avalanche</option>
-<option value="ton">TON</option>
 <option value="polygon">Polygon</option>
+<option value="avalanche">Avalanche</option>
+<option value="sui">Sui</option>
+<option value="ton">TON</option>
+<option value="hyperliquid">Hyperliquid</option>
 </select>
 
-<input id="address" placeholder="Masukkan alamat kontrak token">
-
-<button onclick="scan()">MULAI SCAN</button>
+<button onclick="scan()">🚀 MULAI SCAN OTOMATIS</button>
+<button onclick="scanBoost()">🔥 SCAN TOKEN BOOST</button>
 </div>
 
 <div class="box">
-<h3>📊 HASIL ANALISIS</h3>
-<div id="result">Masukkan alamat kontrak untuk memulai.</div>
+<h3>📊 HASIL SCANNER</h3>
+<div id="status">Menunggu pemindaian...</div>
+<div id="results"></div>
 </div>
 
 <div class="box">
-<h3>⚠️ CATATAN RISIKO</h3>
-<p>Analisis berdasarkan data pasar publik.
-Sinyal bukan jaminan keuntungan.</p>
+<h3>🛡️ FILTER RISIKO</h3>
+<p>Likuiditas minimum: $10.000</p>
+<p>Volume 24 jam minimum: $5.000</p>
+<p>Transaksi beli dan jual dianalisis.</p>
+<small>Filter ini bukan jaminan token aman.</small>
+</div>
+
+<div class="box">
+<h3>🐳 WHALE TRACKER</h3>
+<p class="yellow">Belum terhubung ke data transaksi wallet on-chain.</p>
+</div>
+
+<div class="box">
+<h3>⚠️ PENTING</h3>
+<p>Skor adalah penilaian heuristik, bukan prediksi keuntungan.</p>
+<p>Periksa kontrak, distribusi holder, likuiditas terkunci dan risiko developer sebelum membeli.</p>
 </div>
 
 <script>
-async function scan(){
-const chain=document.getElementById("chain").value;
-const address=document.getElementById("address").value.trim();
-const out=document.getElementById("result");
+const API="https://api.dexscreener.com";
 
-if(!address){
-out.innerHTML="Masukkan alamat kontrak token.";
+const allowed=[
+"solana","ethereum","bsc","base","arbitrum",
+"polygon","avalanche","sui","ton","hyperliquid"
+];
+
+let busy=false;
+
+async function getData(url){
+const r=await fetch(url);
+if(!r.ok)throw Error("API error "+r.status);
+return r.json();
+}
+
+function score(p){
+let s=0;
+const liq=Number(p.liquidity?.usd)||0;
+const vol=Number(p.volume?.h24)||0;
+const buys=Number(p.txns?.h24?.buys)||0;
+const sells=Number(p.txns?.h24?.sells)||0;
+const change=Number(p.priceChange?.h24)||0;
+
+if(liq>=100000)s+=25;
+else if(liq>=50000)s+=20;
+else if(liq>=10000)s+=10;
+
+if(vol>=500000)s+=25;
+else if(vol>=100000)s+=20;
+else if(vol>=5000)s+=10;
+
+if(buys>sells && buys>0)s+=15;
+if(buys+sells>=100)s+=15;
+
+if(change>0 && change<50)s+=10;
+if(Number(p.boosts?.active)>0)s+=5;
+if(liq>0 && vol/liq>0.2 && vol/liq<10)s+=5;
+
+return s;
+}
+
+function render(pairs){
+const out=document.getElementById("results");
+out.innerHTML="";
+
+const best={};
+
+pairs.forEach(p=>{
+if(!p.baseToken)return;
+const key=p.chainId+":"+p.baseToken.address;
+if(!best[key]||
+(Number(p.liquidity?.usd)||0)>
+(Number(best[key].liquidity?.usd)||0)){
+best[key]=p;
+}
+});
+
+const data=Object.values(best)
+.filter(p=>allowed.includes(p.chainId))
+.filter(p=>
+(Number(p.liquidity?.usd)||0)>=10000 &&
+(Number(p.volume?.h24)||0)>=5000
+)
+.map(p=>({...p,score:score(p)}))
+.sort((a,b)=>b.score-a.score)
+.slice(0,10);
+
+if(!data.length){
+out.innerHTML="Tidak ditemukan token yang memenuhi filter. Coba scan lagi.";
 return;
 }
 
-out.innerHTML="⏳ Mengambil data pasar...";
+data.forEach((p,i)=>{
+const liq=Number(p.liquidity.usd);
+const vol=Number(p.volume.h24);
+const buys=Number(p.txns?.h24?.buys)||0;
+const sells=Number(p.txns?.h24?.sells)||0;
+
+let signal=p.score>=75?"MENARIK":p.score>=50?"PANTAU":"RISIKO LEBIH TINGGI";
+
+out.innerHTML+=`
+<div class="card">
+<h3>${i+1}. ${p.baseToken.name} (${p.baseToken.symbol})</h3>
+<p>Jaringan: ${p.chainId}</p>
+<p>Harga: $${p.priceUsd||"-"}</p>
+<p>Likuiditas: $${liq.toLocaleString()}</p>
+<p>Volume 24 jam: $${vol.toLocaleString()}</p>
+<p>Beli: ${buys} | Jual: ${sells}</p>
+<p>Perubahan 24 jam: ${p.priceChange?.h24??"-"}%</p>
+<p>Skor: <b class="green">${p.score}/100</b></p>
+<p class="yellow">Status: ${signal}</p>
+<p>Boost aktif: ${p.boosts?.active||0}</p>
+<a href="${p.url}" target="_blank" rel="noopener">BUKA GRAFIK DEXSCREENER</a>
+</div>`;
+});
+}
+
+async function discover(boost=false){
+if(busy)return;
+busy=true;
+const status=document.getElementById("status");
+const out=document.getElementById("results");
+const network=document.getElementById("network").value;
+
+status.innerHTML="⏳ Mengambil data token...";
+out.innerHTML="";
 
 try{
-const url="https://api.dexscreener.com/token-pairs/v1/"+chain+"/"+encodeURIComponent(address);
-const response=await fetch(url);
+const endpoint=boost?
+"/token-boosts/latest/v1":
+"/token-profiles/latest/v1";
 
-if(!response.ok) throw new Error("API tidak tersedia");
+const list=await getData(API+endpoint);
 
-const pairs=await response.json();
+if(!Array.isArray(list)||!list.length)
+throw Error("Data token kosong");
 
-if(!Array.isArray(pairs)||pairs.length===0){
-out.innerHTML="Token atau pair tidak ditemukan.";
-return;
-}
+const selected=list.filter(t=>
+network==="all"||t.chainId===network
+).filter(t=>allowed.includes(t.chainId));
 
-pairs.sort((a,b)=>
-(Number(b.liquidity?.usd)||0)-
-(Number(a.liquidity?.usd)||0)
+if(!selected.length)
+throw Error("Belum ada token pada jaringan ini");
+
+status.innerHTML="Menganalisis "+selected.length+" token...";
+
+const pairs=await Promise.all(
+selected.slice(0,20).map(async t=>{
+try{
+return await getData(
+API+"/token-pairs/v1/"+
+encodeURIComponent(t.chainId)+"/"+
+encodeURIComponent(t.tokenAddress)
+);
+}catch(e){return []}
+})
 );
 
-let p=pairs[0];
+const flat=pairs.flat();
 
-const liquidity=Number(p.liquidity?.usd)||0;
-const volume=Number(p.volume?.h24)||0;
-const change=Number(p.priceChange?.h24)||0;
-const age=p.pairCreatedAt?
-(Date.now()-p.pairCreatedAt)/3600000:null;
+render(flat);
+status.innerHTML="✅ Pemindaian selesai. Data berhasil diperiksa: "+flat.length+" pair.";
 
-let score=0;
-if(liquidity>=50000)score+=25;
-else if(liquidity>=10000)score+=15;
-
-if(volume>=100000)score+=25;
-else if(volume>=20000)score+=15;
-
-if(volume>liquidity && liquidity>0)score+=15;
-if(change>0 && change<30)score+=15;
-if(age!==null && age>=24)score+=20;
-
-let signal="WAIT";
-if(score>=75)signal="POTENSI MENARIK";
-else if(score<35)signal="RISIKO TINGGI";
-
-out.innerHTML=`
-<div class="result">
-<b>${p.baseToken?.name||"Unknown"} (${p.baseToken?.symbol||"-"})</b>
-</div>
-<div class="result">Harga: $${p.priceUsd||"-"}</div>
-<div class="result">Likuiditas: $${liquidity.toLocaleString()}</div>
-<div class="result">Volume 24 jam: $${volume.toLocaleString()}</div>
-<div class="result">Perubahan 24 jam:
-<span class="${change>=0?'green':'red'}">${change}%</span></div>
-<div class="result">Umur pair: ${age===null?"Tidak tersedia":age.toFixed(1)+" jam"}</div>
-<div class="result">Skor screening: ${score}/100</div>
-<h3 class="${score>=75?'green':'red'}">${signal}</h3>
-<small>Skor ini adalah penyaringan heuristik, bukan probabilitas keuntungan atau sinyal beli.</small>
-`;
 }catch(e){
-out.innerHTML="Gagal mengambil data. Periksa koneksi dan alamat kontrak.";
+status.innerHTML="❌ "+e.message;
+}finally{
+busy=false;
 }
 }
+
+function scan(){discover(false)}
+function scanBoost(){discover(true)}
 </script>
 
 </body>
